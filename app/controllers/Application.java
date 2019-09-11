@@ -46,7 +46,7 @@ public class Application extends Controller {
                         "&redirect_uri=" + oauthCallbackUrl(request());
                 return CompletableFuture.completedFuture(redirect(url));
             } else {
-                return force.getToken(code, oauthCallbackUrl(request())).thenApply( ok(index.render(null));
+                return force.getToken(code, oauthCallbackUrl(request())).thenApply( ok(index.render(null)) );
             }
         } else {
             return CompletableFuture.completedFuture(redirect(routes.Application.setup()));
