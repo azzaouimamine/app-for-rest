@@ -46,12 +46,7 @@ public class Application extends Controller {
                         "&redirect_uri=" + oauthCallbackUrl(request());
                 return CompletableFuture.completedFuture(redirect(url));
             } else {
-                return force.getToken(code, oauthCallbackUrl(request())).
-                             exceptionally(error -> {  
-                                         if (error.getCause() instanceof Force.AuthException)  {return redirect(routes.Application.index(null));}
-                                         else {return internalServerError(error.getMessage());}
-                                         });
-
+                return force.getToken(code, oauthCallbackUrl(request()));
             }
         } else {
             return CompletableFuture.completedFuture(redirect(routes.Application.setup()));
