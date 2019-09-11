@@ -52,13 +52,7 @@ public class Application extends Controller {
                 return CompletableFuture.completedFuture(redirect(url));
             //Si le code existe déjà (On a déjà le Token d'autorisation) on envoie une requête pour récupérer le Token d'authentification
             } else {
-                return force.getToken(code, oauthCallbackUrl(request()))
-                    .exceptionally(error -> {
-                        if (error.getCause() instanceof Force.AuthException)
-                            return redirect(routes.Application.index(null));
-                        else
-                            return internalServerError(error.getMessage());
-                     });
+                return force.getToken(code, oauthCallbackUrl(request()));
             }
         // Si l'on ne possède pas encore les clés, on déclence l'initialisation de l'application
         } else {
