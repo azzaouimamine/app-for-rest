@@ -23,6 +23,7 @@ public class Application extends Controller {
     @Inject
     private Force force;
 
+    //Si on récupère le consumerKey et le consumerSecret, on retourne TRUE
     private boolean isSetup() {
         try {
             force.consumerKey();
@@ -33,30 +34,33 @@ public class Application extends Controller {
         }
     }
 
+    //On récupère la requête, si elle est sécurisée, on retourne l'URL avec un HTTPS au début
     private String oauthCallbackUrl(Http.Request request) {
         return (request.secure() ? "https" : "http") + "://" + request.host();
     }
 
+    //On récupère un code
     public CompletionStage<Result> index(String code) {
+        //On vérifie que l'on possède les clés
         if (isSetup()) {
+            //Si le code (Token d'autorisation) n'existe pas encore
             if (code == null) {
-                // start oauth
+                // start oauth (On récupère l'ID Client (consumerKey), l'url de redirection (Callback URL), et l'URL de l'organisation
                 final String url = "https://axione-sso--devforce.cs106.my.salesforce.com/services/oauth2/authorize?response_type=code" +
                         "&client_id=" + force.consumerKey() +
                         "&redirect_uri=" + oauthCallbackUrl(request());
                 return CompletableFuture.completedFuture(redirect(url));
+            //Si le code existe déjà (On a déjà le Token d'autorisation) on envoie une requête pour récupérer le Token d'authentification
             } else {
-                return force.getToken(code, oauthCallbackUrl(request())).thenCompose(authInfo ->
-                        force.getAccounts(authInfo).thenApply(accounts ->
-                                ok(index.render(accounts))
-                        )
-                ).exceptionally(error -> {
-                    if (error.getCause() instanceof Force.AuthException)
-                        return redirect(routes.Application.index(null));
-                    else
-                        return internalServerError(error.getMessage());
-                });
+                return force.getToken(code, oauthCallbackUrl(request()))
+                    .exceptionally(error -> {
+                        if (error.getCause() instanceof Force.AuthException)
+                            return redirect(routes.Application.index(null));
+                        else
+                            return internalServerError(error.getMessage());
+                     });
             }
+        // Si l'on ne possède pas encore les clés, on déclence l'initialisation de l'application
         } else {
             return CompletableFuture.completedFuture(redirect(routes.Application.setup()));
         }
@@ -111,20 +115,6 @@ public class Application extends Controller {
         }
 
         @JsonIgnoreProperties(ignoreUnknown = true)
-        public static class Account {
-            public String Id;
-            public String Name;
-            public String Type;
-            public String Industry;
-            public String Rating;
-        }
-
-        @JsonIgnoreProperties(ignoreUnknown = true)
-        public static class QueryResultAccount {
-            public List<Account> records;
-        }
-
-        @JsonIgnoreProperties(ignoreUnknown = true)
         public static class AuthInfo {
             @JsonProperty("access_token")
             public String accessToken;
@@ -139,24 +129,7 @@ public class Application extends Controller {
             }
         }
 
-        CompletionStage<List<Account>> getAccounts(AuthInfo authInfo) {
-            CompletionStage<WSResponse> responsePromise = ws.url(authInfo.instanceUrl + "/services/data/v34.0/query/")
-                    .addHeader("Authorization", "Bearer " + authInfo.accessToken)
-                    .addQueryParameter("q", "SELECT Id, Name, Type, Industry, Rating FROM Account")
-                    .get();
 
-            return responsePromise.thenCompose(response -> {
-                final JsonNode jsonNode = response.asJson();
-                if (jsonNode.has("error")) {
-                    CompletableFuture<List<Account>> completableFuture = new CompletableFuture<>();
-                    completableFuture.completeExceptionally(new AuthException(jsonNode.get("error").textValue()));
-                    return completableFuture;
-                } else {
-                    QueryResultAccount queryResultAccount = Json.fromJson(jsonNode, QueryResultAccount.class);
-                    return CompletableFuture.completedFuture(queryResultAccount.records);
-                }
-            });
-        }
     }
 
 }
